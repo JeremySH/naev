@@ -30,6 +30,10 @@
   <lua>tutorial/tutorial-interstellar</lua>
   <trigger>none</trigger>
  </event>
+ <event name="Tutorial: Communications">
+  <lua>tutorial/tutorial-comms</lua>
+  <trigger>none</trigger>
+ </event>
  <event name="Tutorial: Basic Combat">
   <lua>tutorial/tutorial-combat1</lua>
   <trigger>none</trigger>
@@ -56,10 +60,6 @@
  </event>
  <event name="Tutorial: Missions and Events">
   <lua>tutorial/tutorial-missions</lua>
-  <trigger>none</trigger>
- </event>
- <event name="Tutorial: Communications">
-  <lua>tutorial/tutorial-comms</lua>
   <trigger>none</trigger>
  </event>
  <event name="Derelict">
@@ -151,7 +151,7 @@
  <event name="Animal trouble">
   <lua>neutral/animaltrouble</lua>
   <trigger>enter</trigger>
-  <chance>40</chance>
+  <chance>20</chance>
   <cond>var.peek("shipinfested") == true</cond>
   <flags>
    <unique />
@@ -190,6 +190,7 @@
   <chance>15</chance>
   <cond>player.misnDone("Kidnapped") == false and var.peek("traffic_00_active") == nil and system.cur():name() == "Arcturus"</cond>
  </event>
+<<<<<<< HEAD
 
 <event name="Wayfarer Economy">
 	<lua>wayfarer_economy</lua>
@@ -204,3 +205,6 @@
 </event>
 
 </Events>
+=======
+</Events>
+>>>>>>> 4dd7c4766728f9b8ffe64c8c888b1833f0214649

@@ -22,14 +22,14 @@ else -- default english
     text2 = [[    "See, this is the situation," she continues. "My duties as a Sirian administration officer require me to pay visits to several military outposts throughout Sirius space. It's a long trek every time, but that just comes with the job. Now, the trouble is that Harja's assassins might have many opportunities to ambush me along the way. I've had combat training, of course, just like every other Serra soldier, but I'm afraid I have little actual fighting experience, and I'm not sure I could survive an attack unassisted. You, however, seem to have seen quite some action. If you were to escort me while I make my rounds, I would feel a lot more secure. I can reward you, of course. Let's see... Another 150,000 credits seems a fair sum. What do you think, are you willing to do it?"]]
     
     title2 = "Joanne's escort"
-    text3 = [[    "That's wonderful! Thank you so much. As I said, my job requires that I travel between Sirian military bases. You're going to need fuel to make the necessary jumps, of course. Now that you have agreed to be my personal escort I can give you clearance to dock with those bases if you don't have it already, but either way I won't be on station long, so you won't have time to disembark and do other things while you're there.
-    "Also, I think this goes without saying, but I need you to stick close to me. Don't jump to any systems before I do, don't jump to the wrong systems, and don't land on any planets I don't land on. If we meet any unpleasantries along the way I will rely on you to help me fight them off. That's about it. I'll finish up a few things here, and then I'll head to my ship. I'll be in the air when you are."
+    text3 = [[    "That's wonderful! Thank you so much. As I said, my job requires that I travel between Sirian military bases. You're going to need fuel to make the necessary jumps, of course. Now that you have agreed to be my personal escort I can give you clearance to dock with those bases if you don't have it already so you can automatically refuel, but either way I won't be on station long, so you won't have time to disembark and do other things while you're there.
+    "Also, I think this goes without saying, but I need you to stick close to me so your ship must be fast enough. Also don't jump to any systems before I do, don't jump to the wrong systems, and don't land on any planets I don't land on. If we meet any unpleasantries along the way I will rely on you to help me fight them off. That's about it. I'll finish up a few things here, and then I'll head to my ship. I'll be in the air when you are."
     Joanne leaves the bar. You will meet up with her in orbit.]]
     
     title3 = "Mission accomplished"
     text4 = [[    You go through the now familiar routine of waiting for Joanne. She soon hails you on the comms.
-    "That's it, %s! This was the final stop. You've been a great help. This isn't a good place to wrap things up though. Tell you what, let's relocate to Traal and meet up in the spaceport bar there. I need to give you your payment of course, but I also want to talk to you for a bit. See you planetside!"
-    The comm switches off. You prepare to take off and set a course for Traal.]]
+    "That's it, %s! This was the final stop. You've been a great help. This isn't a good place to wrap things up though. Tell you what, let's relocate to Sroolu and meet up in the spaceport bar there. I need to give you your payment of course, but I also want to talk to you for a bit. See you planetside!"
+    The comm switches off. You prepare to take off and set a course for Sroolu.]]
     
     title4 = "One damsel, safe and sound"
     text5 = [[    After you both land your ships, you meet Joanne in the spaceport bar.
@@ -56,6 +56,9 @@ else -- default english
     deathfailtitle = "Joanne's ship has been destroyed!"
     deathfailtext = "Joanne's assailants have succeeded in destroying her ship. Your mission is a failure!"
 
+    toslowshiptitle = 'Your ship is to slow!'
+    toslowshipmsg = "You need a faster ship to be able to protect Joanne. Your mission is a failure!"
+
     jumpmsg = "Joanne has jumped for the %s system. Follow her!"
     landmsg = "Joanne has docked with %s. Follow her!"
     
@@ -72,7 +75,7 @@ else -- default english
     osd_msg[1] = "Follow Joanne's ship"
     osd_msg[2] = "Defeat Joanne's attackers"
     osd_msg["__save"] = true
-    osd_final = {"Land on Traal to get your reward"}
+    osd_final = {"Land on Sroolu to get your reward"}
     osd_final["__save"] = true
 
     misn_desc = "Joanne needs you to escort her ship and fight off mercenaries sent to kill her."
@@ -93,6 +96,16 @@ function create()
    end
 end
 
+function player_has_fast_ship()
+  local stats = pilot.player():stats()
+  playershipspeed = stats.speed_max
+  local has_fast_ship = false
+     if playershipspeed > 200 then
+        has_fast_ship = true
+     end
+     return has_fast_ship
+end
+
 function accept()
    if var.peek("achack02repeat") then
       tk.msg(title1, text1r:format(player.name()))
@@ -106,7 +119,7 @@ function accept()
    tk.msg(title2, text3)
    
    -- This is the route Joanne will take.
-   route = {"Violin Station", "Fyruse Station", "Tankard Station", "Inios Station", "Traal"}
+   route = {"Violin Station", "Fyruse Station", "Inios Station", "Tankard Station", "Sroolu"}
    route["__save"] = true
    stage = 1
 
@@ -131,6 +144,7 @@ function land()
       stage = stage + 1
       destplanet, destsys = planet.get(route[stage])
       origin = planet.cur()
+      player.refuel(200)
       tk.msg(stoptitle, stoptext:format(planet.cur():name()))
       joannejumped = true -- She "jumped" into the current system by taking off.
       player.takeoff()
@@ -146,7 +160,7 @@ function land()
    elseif stage < 4 then
       tk.msg(destfailtitle, planetfailtext)
       abort()
-   elseif stage == 5 and planet.cur() == planet.get("Traal") then
+   elseif stage == 5 and planet.cur() == planet.get("Sroolu") then
       tk.msg(title4, text5:format(player.name(), player.name()))
       tk.msg(title5, text6)
       tk.msg(title5, text7:format(player.name()))
@@ -162,6 +176,10 @@ function enter()
       tk.msg(destfailtitle, sysfailtext)
       abort()
    end
+   if not player_has_fast_ship() then
+      tk.msg(toslowshiptitle, toslowshipmsg)
+      abort()
+   end
    
    joanne = addRawShips("Sirius Fidelity", "sirius_norun", origin, "Achack_sirius")[1]
    joanne:control()
@@ -173,7 +191,12 @@ function enter()
    joanne:setVisplayer()
    joanne:setHilight()
    joanne:setInvincPlayer()
-   -- TODO? Limit Joanne's max speed to the player's max speed. Needs API.
+   local stats = joanne:stats()
+   local joanneshipspeed = stats.speed_max
+   if playershipspeed < joanneshipspeed then
+     joanne:setSpeedLimit(playershipspeed)
+   end
+ 
    
    pilot.toggleSpawn("Pirate")
    pilot.clearSelect("Pirate") -- Not sure if we need a claim for this.
@@ -192,10 +215,10 @@ function enter()
    end
    hook.pilot(joanne, "death", "joanneDead")
    
-   if system.cur() == system.get("Humdrum") and stage == 3 then
-      ambushSet({"Hyena", "Hyena"}, vec2.new(12500, 0))
-   elseif system.cur() == system.get("Lapis") then
-      ambushSet({"Vendetta", "Vendetta"}, vec2.new(0, 10500))
+   if system.cur() == system.get("Valur Gem") and stage == 3 then
+      ambushSet({"Hyena", "Hyena"}, vec2.new(880, -140))
+   elseif system.cur() == system.get("Humdrum") then
+      ambushSet({"Vendetta", "Vendetta"}, vec2.new(2230, -15000))
    end
 end
 

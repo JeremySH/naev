@@ -8,7 +8,7 @@ AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build])
 
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 # M4 defines __unix__ to be the empty string on UNIX-like systems.  This
 # causes AC_DEFINE to fail if it is used to define __unix__.  This seems to
@@ -164,6 +164,21 @@ AS_IF([test "$enable_debug" != "no"], [
   esac
 ])
 
+# --with-sdl2
+AC_MSG_CHECKING([whether to use SDL2 instead of SDL])
+AC_ARG_WITH([sdl2],
+  AC_HELP_STRING([--with-sdl2],
+     [use SDL2 instead of SDL (default: yes)]), [
+    AS_IF([test "$withval" = "yes"], [
+      with_sdl2=yes
+    ], [
+      with_sdl2=no
+    ])
+  ], [
+    with_sdl2=no # TODO should default to yes, but it's too broken atm
+  ])
+AC_MSG_RESULT([$with_sdl2])
+
 # --with-openal
 AC_MSG_CHECKING([whether to use OpenAL])
 AC_ARG_WITH([openal],
@@ -234,30 +249,32 @@ AC_SUBST([ndata_path])
 #
 
 # SDL
-AM_PATH_SDL
-AS_IF([test -z "$SDL_CFLAGS" && test -z "$SDL_LIBS"], [
-  AC_ERROR([SDL not found])
+AS_IF([test "$with_sdl2" = "yes"], [
+      SDL2_VERSION=2.0.0
+      AM_PATH_SDL2($SDL2_VERSION, [have_sdl2=yes], [have_sdl2=no])
+   ], [have_sdl2=no]
+)
+AS_IF([test "$have_sdl2" = "no"], [
+   AM_PATH_SDL
+   AS_IF([test -z "$SDL_CFLAGS" && test -z "$SDL_LIBS"], [
+     AC_ERROR([SDL not found])
+   ])
 ])
 
 # libxml2
-PKG_CHECK_MODULES([XML], [libxml-2.0], [], [
-  AC_ERROR([libxml-2.0 not found])
-])
+PKG_CHECK_MODULES([XML], [libxml-2.0])
 
 # FreeType
-PKG_CHECK_MODULES([FREETYPE], [freetype2], [], [
-  AC_ERROR([freetype2 not found])
-])
+PKG_CHECK_MODULES([FREETYPE], [freetype2])
+
+# vorbis
+PKG_CHECK_MODULES([VORBIS], [vorbis])
 
 # vorbisfile
-PKG_CHECK_MODULES([VORBISFILE], [vorbisfile], [], [
-  AC_ERROR([vorbisfile not found])
-])
+PKG_CHECK_MODULES([VORBISFILE], [vorbisfile])
 
 # libpng
-PKG_CHECK_MODULES([PNG], [libpng], [], [
-  AC_ERROR([libpng not found])
-])
+PKG_CHECK_MODULES([PNG], [libpng])
 
 # lua
 case "$used_lua" in
@@ -287,18 +304,30 @@ AS_IF([test "$have_lua" = "no"], [
   used_lua=internal
 ])
 
+# sqrt is required for system csparse to work
+AC_SEARCH_LIBS([sqrt], [m])
 
+# csparse
 AC_CHECK_LIB([csparse], [cs_spalloc], [have_csparse_lib=yes], [have_csparse_lib=no])
 AC_CHECK_LIB([cxsparse], [cs_di_spalloc], [have_cxsparse_lib=yes], [have_cxsparse_lib=no])
-AC_CHECK_HEADERS([cs.h], [have_cs_h=yes], [have_cs_h=no])
-AC_CHECK_HEADERS([suitesparse/cs.h], [have_suitesparse_cs_h=yes], [have_suitesparse_cs_h=no])
-AS_IF([test $have_csparse_lib = yes -a $have_cxsparse_lib = yes -a \( $have_cs_h = yes -o $have_suitesparse_cs_h = yes \)], [
-   used_csparse=shared
-   CSPARSE_LIBS="-lcsparse -lcxsparse"
+
+AS_IF([test "$have_csparse_lib" = "yes" -a "$have_cxsparse_lib" = "yes"], [
+    AC_CHECK_HEADERS([cs.h], [have_cs_h=yes], [have_cs_h=no])
+    AC_CHECK_HEADERS([suitesparse/cs.h], [have_suitesparse_cs_h=yes], [have_suitesparse_cs_h=no])
+
+    AS_IF([test $have_cs_h = yes -o $have_suitesparse_cs_h = yes], [
+        used_csparse=shared
+        CSPARSE_LIBS="-lcsparse -lcxsparse"
+    ], [
+        used_csparse=internal
+    ])
 ], [
    used_csparse=internal
-   CSPARSE_CFLAGS="-I\"\$(top_srcdir)/lib/csparse\""
-   CSPARSE_LIBS="\$(top_builddir)/lib/csparse/libcsparse.a"
+])
+
+AS_IF([test "$used_csparse" = "internal"], [
+    CSPARSE_CFLAGS="-I\"\$(top_srcdir)/lib/csparse\""
+    CSPARSE_LIBS="\$(top_builddir)/lib/csparse/libcsparse.a"
 ])
 
 # OpenAL
@@ -308,24 +337,13 @@ AS_IF([test "$with_openal" = "yes"], [
 
 # SDL_mixer
 AS_IF([test "$with_sdlmixer" = "yes"], [
-  VAR_SAVE([LIBS])
-  AC_SEARCH_LIBS([Mix_OpenAudio], [SDL_mixer],
-     [have_sdlmixer=yes], [have_sdlmixer=no])
-  AS_IF([test "$have_sdlmixer" = "yes"], [
-    SDLMIXER_CFLAGS=
-    SDLMIXER_LIBS="$LIBS"
-  ], [
-    SDLMIXER_CFLAGS=
-    SDLMIXER_LIBS=
-  ])
-  VAR_RESTORE([LIBS])
-], [
-  have_sdlmixer=no
+  PKG_CHECK_MODULES([SDLMIXER], [SDL_mixer], [have_sdlmixer=yes], [have_sdlmixer=no])
 ])
 
 # SDL_image
 VAR_SAVE([LIBS])
-AC_SEARCH_LIBS([IMG_Load], [SDL_image], [
+AS_IF([test "$have_sdl2" = "yes"], [SDLIMAGE_NAME=SDL2_image], [SDLMIXER_NAME=SDL_image])
+AC_SEARCH_LIBS([IMG_Load], [$SDLIMAGE_NAME], [
   SDLIMAGE_CFLAGS=
   SDLIMAGE_LIBS="$LIBS"
   have_mkspr=yes
@@ -344,6 +362,18 @@ AM_PATH_OPENGL([], [
 #
 # Compiler flags
 #
+AS_IF([test "$have_sdl2" = "yes"], [
+   SDL_CFLAGS="$SDL_CFLAGS -DSDLKey=SDL_Keycode -DSDLMod=SDL_Keymod -DSDL_BUTTON_WHEELUP=SDL_BUTTON_X1 -DSDL_BUTTON_WHEELDOWN=SDL_BUTTON_X2 -DKMOD_LMETA=KMOD_LGUI -DKMOD_RMETA=KMOD_RGUI -DSDLK_NUMLOCK=SDLK_NUMLOCKCLEAR -DSDLK_SCROLLOCK=SDLK_SCROLLLOCK -DSDLK_RMETA=SDLK_RGUI -DSDLK_LMETA=SDLK_LGUI"
+   case "$host" in
+     *-linux*)
+       SDL_CFLAGS="$SDL_CFLAGS -D_GNU_SOURCE=1"
+       ;;
+   esac
+# Disable mkspr
+   SDL_IMAGE_CFLAGS=
+   SDL_IMAGE_LIBS=
+   have_mkspr=no
+])
 
 # global
 GLOBAL_CFLAGS="-include \"\$(top_builddir)/src/config.h\""
@@ -355,6 +385,9 @@ AS_IF([test "$enable_debug" != "no"], [
 ])
 
 case "$host" in
+  *-linux*)
+    GLOBAL_LIBS="$NAEV_LIBS -lm" # feels so wrong
+    ;;
   *-mingw*)
     GLOBAL_LIBS="$NAEV_LIBS -lwsock32"
     ;;
@@ -376,7 +409,7 @@ AS_IF([test "$enable_debug" != "no"], [
      case "$host" in
        *-linux-gnu)
          AC_DEFINE([HAS_BFD], 1, [Define to 1 to enable bfd backtrace code])
-         NAEV_LIBS="$NAEV_LIBS -lbfd -liberty -rdynamic -ldl"
+         NAEV_LIBS="$NAEV_LIBS -lbfd -liberty -rdynamic -ldl -lz"
          ;;
      esac
   ])
@@ -385,13 +418,13 @@ AS_IF([test "$enable_debug" = "paranoid"], [
   AC_DEFINE([DEBUG_PARANOID], 1, [Define to 1 to enable paranoid debug code])
 ])
 
-NAEV_CFLAGS="$NAEV_CFLAGS $CSPARSE_CFLAGS $SDL_CFLAGS"
-NAEV_CFLAGS="$NAEV_CFLAGS $XML_CFLAGS $FREETYPE_CFLAGS $LUA_CFLAGS"
-NAEV_CFLAGS="$NAEV_CFLAGS $VORBISFILE_CFLAGS $OPENGL_CFLAGS $PNG_CFLAGS"
+NAEV_CFLAGS="$NAEV_CFLAGS $CSPARSE_CFLAGS $SDL_CFLAGS $XML_CFLAGS \
+    $FREETYPE_CFLAGS $LUA_CFLAGS $VORBIS_CFLAGS $VORBISFILE_CFLAGS \
+    $PNG_CFLAGS $OPENGL_CFLAGS"
 
-NAEV_LIBS="$NAEV_LIBS $CSPARSE_LIBS $SDL_LIBS $XML_LIBS"
-NAEV_LIBS="$NAEV_LIBS $FREETYPE_LIBS $LUA_LIBS"
-NAEV_LIBS="$NAEV_LIBS $VORBISFILE_LIBS $OPENGL_LIBS $PNG_LIBS"
+NAEV_LIBS="$NAEV_LIBS $CSPARSE_LIBS $SDL_LIBS $XML_LIBS \
+    $FREETYPE_LIBS $LUA_LIBS $VORBIS_LIBS $VORBISFILE_LIBS \
+    $PNG_LIBS $OPENGL_LIBS"
 
 AS_IF([test "$have_openal" = "yes"], [
   NAEV_CFLAGS="$NAEV_CFLAGS $OPENAL_CFLAGS"
@@ -590,6 +623,8 @@ AC_OUTPUT
 echo
 AC_MSG_NOTICE([prefix:      $prefix])
 AC_MSG_NOTICE([ndata:       $ndata_path])
+echo
+AC_MSG_NOTICE([SDL2:        $have_sdl2])
 echo
 AC_MSG_NOTICE([sound backends:])
 AC_MSG_NOTICE([  OpenAL:    $have_openal])

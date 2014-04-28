@@ -14,6 +14,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <float.h>
 
 #include "nxml.h"
 
@@ -102,7 +103,7 @@ glTexture *jumppoint_gfx = NULL; /**< Jump point graphics. */
 static glTexture *jumpbuoy_gfx = NULL; /**< Jump buoy graphics. */
 static lua_State *landing_lua = NULL; /**< Landing lua. */
 static int space_fchg = 0; /**< Faction change counter, to avoid unnecessary calls. */
-static int space_simulating = 0; /** Are we simulating space? */
+static int space_simulating = 0; /**< Are we simulating space? */
 
 
 /*
@@ -678,7 +679,7 @@ int space_sysReallyReachable( char* sysname )
 
    if (strcmp(sysname,cur_system->name)==0)
       return 1;
-   path = map_getJumpPath( &njumps, cur_system->name, sysname, 1, NULL );
+   path = map_getJumpPath( &njumps, cur_system->name, sysname, 1, 1, NULL );
    if (path != NULL) {
       free(path);
       return 1;
@@ -1213,12 +1214,13 @@ void space_update( const double dt )
    if (cur_system->nebu_volatility > 0.) {
       dmg.type          = dtype_get("nebula");
       dmg.damage        = pow2(cur_system->nebu_volatility) / 500. * dt;
-      dmg.penetration   = 1.; /* Full penetration. */
       dmg.disable       = 0.;
 
       /* Damage pilots in volatile systems. */
       for (i=0; i<pilot_nstack; i++) {
          p = pilot_stack[i];
+         /* Regular absorption does nothing here. */
+         dmg.penetration = (p->shield > 0.) ? (p->dmg_absorb - p->nebu_absorb_shield) : 1.0;
          pilot_hit( p, NULL, 0, &dmg );
       }
    }
@@ -2280,6 +2282,7 @@ StarSystem *system_new (void)
  */
 void system_reconstructJumps (StarSystem *sys)
 {
+   double dx, dy;
    int j;
    JumpPoint *jp;
    double a;
@@ -2289,7 +2292,9 @@ void system_reconstructJumps (StarSystem *sys)
       jp->target  = system_getIndex( jp->targetid );
 
       /* Get heading. */
-      a = atan2( jp->target->pos.y - sys->pos.y, jp->target->pos.x - sys->pos.x );
+      dx = jp->target->pos.x - sys->pos.x;
+      dy = jp->target->pos.y - sys->pos.y;
+      a = atan2( dy, dx );
       if (a < 0.)
          a += 2.*M_PI;
 
@@ -2315,6 +2320,7 @@ void systems_reconstructJumps (void)
    StarSystem *sys;
    int i;
 
+   /* So we need to calculate the shortest jump. */
    for (i=0; i<systems_nstack; i++) {
       sys = &systems_stack[i];
       system_reconstructJumps(sys);

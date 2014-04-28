@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include "nstring.h"
 #include <math.h>
-
+#include <assert.h>
 #include "log.h"
 #include "player.h"
 #include "land.h"
@@ -135,7 +135,7 @@ void shipyard_open( unsigned int wid )
          w-(40+iw+20+100)-20, th, 0, "txtDDesc", &gl_smallFont, &cBlack, NULL );
    y -= th;
    window_addText( wid, 20+iw+40, y,
-         w-(20+iw+40) - 20, 185, 0, "txtDescription",
+         w-(20+iw+40) - 180, 185, 0, "txtDescription",
          &gl_smallFont, NULL, NULL );
 
    /* set up the ships to buy/sell */
@@ -223,6 +223,19 @@ void shipyard_update( unsigned int wid, char* str )
    window_modifyText( wid, "txtDescription", ship->description );
    credits2str( buf2, ship_buyPrice(ship), 2 );
    credits2str( buf3, player.p->credits, 2 );
+
+   /* Remove the word " License".  It's redundant and makes the text overflow
+      into another text box */
+   char *license_text = ship->license;
+   if (license_text) {
+	   size_t len = strlen(ship->license);
+	   if (0 == strcmp(" License", ship->license + len - 8)) {
+		  license_text = malloc(len - 7);
+		  assert(license_text);
+		  memcpy(license_text, ship->license, len - 8);
+		  license_text[len - 8] = '\0';
+	   }
+   }
    nsnprintf( buf, PATH_MAX,
          "%s\n"
          "%s\n"
@@ -263,8 +276,11 @@ void shipyard_update( unsigned int wid, char* str )
          ship->fuel,
          buf2,
          buf3,
-         (ship->license != NULL) ? ship->license : "None" );
+         (license_text != NULL) ? license_text : "None" );
    window_modifyText( wid,  "txtDDesc", buf );
+
+   if (license_text != ship->license)
+      free(license_text);
 
    if (!shipyard_canBuy( shipname ))
       window_disableButtonSoft( wid, "btnBuyShip");
@@ -487,6 +503,10 @@ static void shipyard_trade( unsigned int wid, char* str )
    player_modCredits( playerprice - targetprice ); /* Modify credits by the difference between ship values. */
 
    land_checkAddRefuel();
+
+   /* The newShip call will trigger a loadGUI that will recreate the land windows. Therefore the land ID will
+    * be void. We must reload in in order to properly update it again.*/
+   wid = land_getWid(LAND_WINDOW_SHIPYARD);
 
    /* Update shipyard. */
    shipyard_update(wid, NULL);

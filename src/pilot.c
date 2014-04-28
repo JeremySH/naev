@@ -2146,6 +2146,7 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
    pilot->fuel   = pilot->fuel_max   = 1.; /* ditto fuel */
    pilot_calcStats(pilot);
    pilot->stress = 0.; /* No stress. */
+   pilot->nebu_absorb_shield = 0.;
 
    /* Allocate outfit memory. */
    /* Slot types. */
@@ -2201,7 +2202,7 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
 
    /* Sanity check. */
 #ifdef DEBUGGING
-   const char *str = pilot_checkSanity( pilot );
+   const char *str = pilot_checkSpaceworthy( pilot );
    if (str != NULL)
       DEBUG( "Pilot '%s' failed sanity check: %s", pilot->name, str );
 #endif /* DEBUGGING */

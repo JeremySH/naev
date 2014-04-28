@@ -82,6 +82,8 @@ static int econ_createGMatrix (void);
 credits_t economy_getPrice( const Commodity *com,
       const StarSystem *sys, const Planet *p ); /* externed in land.c */
 
+int economy_setPrice( const Commodity *com,
+       StarSystem *sys, const Planet *p, double thePrice);
 
 /**
  * @brief Converts credits to a usable string for displaying.
@@ -384,6 +386,31 @@ credits_t economy_getPrice( const Commodity *com,
    price  = (double) com->price;
    price *= sys->prices[i];
    return (credits_t) price;
+}
+
+int economy_setPrice( const Commodity *com,
+       StarSystem *sys, const Planet *p, double thePrice)
+{
+   (void) p;
+   int i, k;
+
+   /* Get position in stack. */
+   k = com - commodity_stack;
+
+   /* Find what commodity that is. */
+   for (i=0; i<econ_nprices; i++)
+      if (econ_comm[i] == k)
+         break;
+
+   /* Check if found. */
+   if (i >= econ_nprices) {
+      WARN("Price for commodity '%s' not known.", com->name);
+      return 0;
+   }
+
+   /* Set price. Note: thePrice is in credits, but sys->prices are in a factor */
+   sys->prices[i] = thePrice/com->price;
+   return 1;
 }
 
 

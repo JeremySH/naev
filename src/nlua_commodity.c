@@ -20,6 +20,9 @@
 #include "log.h"
 #include "rng.h"
 
+/* from economy.c */
+extern int economy_setPrice( const Commodity *com,
+      const StarSystem *sys, const Planet *p, double thePrice);
 
 /* Commodity metatable methods. */
 static int commodityL_eq( lua_State *L );
@@ -27,6 +30,8 @@ static int commodityL_get( lua_State *L );
 static int commodityL_name( lua_State *L );
 static int commodityL_price( lua_State *L );
 static int commodityL_priceAt( lua_State *L );
+static int commodityL_setPriceAt( lua_State *L );
+
 static const luaL_reg commodityL_methods[] = {
    { "__tostring", commodityL_name },
    { "__eq", commodityL_eq },
@@ -34,6 +39,7 @@ static const luaL_reg commodityL_methods[] = {
    { "name", commodityL_name },
    { "price", commodityL_price },
    { "priceAt", commodityL_priceAt },
+  { "setPriceAt", commodityL_setPriceAt },
    {0,0}
 }; /**< Commodity metatable methods. */
 
@@ -302,3 +308,47 @@ static int commodityL_priceAt( lua_State *L )
 
 
 
+/**
+ * @brief Sets the price of a commodity on a planet
+ *
+ * @usage if o:setPriceAt( planet.get("Polaris Prime"), 200 ) -- Sets price of a commodity to 200 at polaris prime
+ *
+ *    @luaparam o Commodity to get information of.
+ *    @luaparam p Planet to set price at.
+ *    @luareturn The price of the commodity at the planet.
+ * @luafunc priceAt( o, p )
+ */
+ static int commodityL_setPriceAt( lua_State *L )
+{
+   Commodity *com;
+   Planet *p;
+   StarSystem *sys;
+   char *sysname;
+   double newPrice;
+   int  ret;
+   
+   
+   com = luaL_validcommodity(L,1);
+   p = luaL_validplanet(L,2);
+   newPrice = luaL_checknumber(L,3);
+
+   sysname = planet_getSystem( p->name );
+   if (sysname == NULL) {
+      NLUA_ERROR( L, "Planet '%s' does not belong to a system", p->name );
+      return 0;
+   }
+   sys = system_get( sysname );
+   if (sys == NULL) {
+      NLUA_ERROR( L, "Planet '%s' can not find its system '%s'", p->name, sysname );
+      return 0;
+   }
+
+    /* set price. */
+    ret =  economy_setPrice(com, sys, p, newPrice);
+
+    if (ret == 0) {
+      NLUA_ERROR( L, "Had trouble setting price for '%s' on Planet '%s'", com->name, p->name);
+      return 0;
+    }
+    return 1;
+}

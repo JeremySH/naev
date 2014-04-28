@@ -800,6 +800,8 @@ static int planetL_commoditiesSold( lua_State *L )
 
    /* Get result and tech. */
    p = luaL_validplanet(L,1);
+# if 0
+  /* tech groups don't work with Wayfarer (not sure if they work at all, really... */
    c = tech_getCommodity( p->tech, &n );
 
    /* Push results in a table. */
@@ -810,7 +812,20 @@ static int planetL_commoditiesSold( lua_State *L )
       lua_pushcommodity(L,lc); /* value = LuaCommodity */
       lua_rawset(L,-3); /* store the value in the table */
    }
+#endif
 
+   c = p->commodities;
+   n = p->ncommodities;
+
+   /* Push results in a table. */
+   lua_newtable(L);
+   for (i=0; i<n; i++) {
+      lua_pushnumber(L,i+1); /* index, starts with 1 */
+      lc.commodity = c[i];
+      lua_pushcommodity(L,lc); /* value = LuaCommodity */
+      lua_rawset(L,-3); /* store the value in the table */
+   }
+  
    return 1;
 }
 
